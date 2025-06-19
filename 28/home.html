@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ポケモントレーナー・ポートフォリオ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ナビゲーション */
+        nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 15px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+        }
+
+        .nav-menu {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav-item {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item:before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #48cae4, #0077b6);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        .nav-item:hover:before {
+            left: 0;
+        }
+
+        .nav-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(45deg, #48cae4, #0077b6);
+            transform: scale(1.05);
+        }
+
+        /* 画面セクション */
+        .screen {
+            display: none;
+            animation: fadeIn 0.6s ease-in-out;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .screen-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 25px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen-content:before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 193, 7, 0.1) 0%, transparent 70%);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        .pokemon-image {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 30px;
+            display: block;
+            border-radius: 50%;
+            border: 5px solid #ffd700;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .pokemon-image:hover {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 15px 40px rgba(255, 215, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        h2 {
+            color: #e74c3c;
+            margin-bottom: 20px;
+            font-size: 2em;
+            border-bottom: 3px solid #ffd700;
+            padding-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        p {
+            line-height: 1.8;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .skill-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .skill-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            transform: translateY(0);
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .skill-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .project-card {
+            background: linear-gradient(135deg, #ff9a9e, #fecfef);
+            padding: 25px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .project-card:hover {
+            transform: translateX(10px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+        }
+
+        .contact-info {
+            background: linear-gradient(135deg, #a8edea, #fed6e3);
+            padding: 30px;
+            border-radius: 20px;
+            margin-top: 30px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .pokeball {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(to bottom, #ff0000 50%, #ffffff 50%);
+            border: 3px solid #333;
+            display: inline-block;
+            margin: 0 10px;
+            position: relative;
+            animation: spin 2s linear infinite;
+        }
+
+        .pokeball:after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+            border: 2px solid #fff;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .nav-menu {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .screen-content {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .pokemon-image {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <ul class="nav-menu">
+                <li class="nav-item active" data-screen="home">🏠 ホーム</li>
+                <li class="nav-item" data-screen="profile">👤 プロフィール</li>
+                <li class="nav-item" data-screen="skills">⚡ スキル</li>
+                <li class="nav-item" data-screen="experience">🎯 経験</li>
+                <li class="nav-item" data-screen="projects">💼 プロジェクト</li>
+                <li class="nav-item" data-screen="contact">📧 お問い合わせ</li>
+            </ul>
+        </nav>
+
+        <!-- ホーム画面 -->
+        <div class="screen active" id="home">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="ピカチュウ" class="pokemon-image">
+                <h1>ポケモントレーナー・ポートフォリオ</h1>
+                <div class="pokeball"></div>
+                <div class="pokeball"></div>
+                <div class="pokeball"></div>
+                <p style="text-align: center; font-size: 1.3em; margin-top: 30px;">
+                    こんにちは！私は新人ポケモントレーナーです。<br>
+                    技術の世界を冒険し、新しいスキルを捕まえながら成長しています。<br>
+                    一緒に素晴らしい冒険を始めませんか？
+                </p>
+            </div>
+        </div>
+
+        <!-- プロフィール画面 -->
+        <div class="screen" id="profile">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/150.png" alt="ミュウツー" class="pokemon-image">
+                <h1>プロフィール</h1>
+                <h2>基本情報</h2>
+                <p><strong>名前:</strong> 田中 太郎</p>
+                <p><strong>年齢:</strong> 25歳</p>
+                <p><strong>出身:</strong> カントー地方（東京都）</p>
+                <p><strong>職業:</strong> フロントエンドエンジニア</p>
+                
+                <h2>自己紹介</h2>
+                <p>
+                    幼い頃からポケモンとプログラミングが大好きで、両方の世界で冒険を続けています。
+                    ミュウツーのように強力で知的な解決策を生み出すことを目指し、
+                    日々新しい技術の習得に励んでいます。
+                </p>
+                <p>
+                    「最強のポケモンマスターになる」という夢と同じように、
+                    「最高のエンジニアになる」という目標に向かって努力しています。
+                </p>
+            </div>
+        </div>
+
+        <!-- スキル画面 -->
+        <div class="screen" id="skills">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png" alt="リザードン" class="pokemon-image">
+                <h1>スキル</h1>
+                <h2>技術スキル</h2>
+                <div class="skill-grid">
+                    <div class="skill-card">
+                        <h3>🔥 HTML/CSS</h3>
+                        <p>リザードンの炎のように熱いコーディング</p>
+                    </div>
+                    <div class="skill-card">
+                        <h3>⚡ JavaScript</h3>
+                        <p>ピカチュウの電撃のような高速処理</p>
+                    </div>
+                    <div class="skill-card">
+                        <h3>🌊 React</h3>
+                        <p>カメックスの水技のような流れるようなUI</p>
+                    </div>
+                    <div class="skill-card">
+                        <h3>🌿 Node.js</h3>
+                        <p>フシギダネのように成長し続けるサーバー技術</p>
+                    </div>
+                    <div class="skill-card">
+                        <h3>💎 TypeScript</h3>
+                        <p>ダイヤモンドのように堅牢なコード</p>
+                    </div>
+                    <div class="skill-card">
+                        <h3>🎨 デザイン</h3>
+                        <p>様々なポケモンのような多彩な表現力</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 経験画面 -->
+        <div class="screen" id="experience">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png" alt="カビゴン" class="pokemon-image">
+                <h1>経験</h1>
+                <h2>職歴</h2>
+                <div class="project-card">
+                    <h3>株式会社ポケテック（2022年〜現在）</h3>
+                    <p><strong>フロントエンドエンジニア</strong></p>
+                    <p>
+                        カビゴンのようにどっしりと安定したWebアプリケーションの開発を担当。
+                        React、TypeScriptを使用したSPAの開発経験を積み、
+                        ユーザビリティの向上に貢献しました。
+                    </p>
+                </div>
+                
+                <h2>教育</h2>
+                <div class="project-card">
+                    <h3>ポケモン工科大学 情報工学部（2018年〜2022年）</h3>
+                    <p>
+                        プログラミングの基礎から応用まで、様々な技術を学習。
+                        卒業研究では「AIを活用したポケモン図鑑システム」を開発し、
+                        優秀賞を受賞しました。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- プロジェクト画面 -->
+        <div class="screen" id="projects">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png" alt="ゲンガー" class="pokemon-image">
+                <h1>プロジェクト</h1>
+                <h2>主要プロジェクト</h2>
+                
+                <div class="project-card">
+                    <h3>🔮 ポケモン図鑑アプリ</h3>
+                    <p><strong>使用技術:</strong> React, TypeScript, PokeAPI</p>
+                    <p>
+                        ゲンガーのように神秘的で魅力的なポケモン図鑑アプリを開発。
+                        PokeAPIを活用し、全てのポケモンの情報を検索・表示できる
+                        レスポンシブWebアプリケーションです。
+                    </p>
+                </div>
+
+                <div class="project-card">
+                    <h3>⚡ バトルシミュレーター</h3>
+                    <p><strong>使用技術:</strong> JavaScript, Canvas API, CSS3</p>
+                    <p>
+                        ポケモンバトルをシミュレートできるブラウザゲーム。
+                        アニメーションエフェクトにこだわり、
+                        実際のバトルのような臨場感を再現しました。
+                    </p>
+                </div>
+
+                <div class="project-card">
+                    <h3>🌟 トレーナー管理システム</h3>
+                    <p><strong>使用技術:</strong> Vue.js, Node.js, MongoDB</p>
+                    <p>
+                        ポケモントレーナーの情報を管理するWebアプリケーション。
+                        RESTful APIの設計・実装から、フロントエンドの開発まで
+                        フルスタックで担当しました。
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- お問い合わせ画面 -->
+        <div class="screen" id="contact">
+            <div class="screen-content">
+                <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png" alt="ミュウ" class="pokemon-image">
+                <h1>お問い合わせ</h1>
+                <h2>一緒に冒険しませんか？</h2>
+                <p style="text-align: center; font-size: 1.2em;">
+                    ミュウのように珍しい出会いを大切にしています。<br>
+                    お仕事のご依頼やご相談、お気軽にお声かけください！
+                </p>
+                
+                <div class="contact-info">
+                    <h3>連絡先</h3>
+                    <p><strong>📧 Email:</strong> trainer@pokemon-portfolio.com</p>
+                    <p><strong>📱 Phone:</strong> 090-1234-5678</p>
+                    <p><strong>🌐 GitHub:</strong> github.com/pokemon-trainer</p>
+                    <p><strong>💼 LinkedIn:</strong> linkedin.com/in/pokemon-trainer</p>
+                    <p><strong>🐦 Twitter:</strong> @pokemon_dev</p>
+                    
+                    <div style="margin-top: 30px;">
+                        <div class="pokeball"></div>
+                        <div class="pokeball"></div>
+                        <div class="pokeball"></div>
+                    </div>
+                    
+                    <p style="margin-top: 20px; font-style: italic;">
+                        "君に決めた！" - 一緒に素晴らしいプロジェクトを作りましょう
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ナビゲーション機能
+        const navItems = document.querySelectorAll('.nav-item');
+        const screens = document.querySelectorAll('.screen');
+
+        navItems.forEach(item => {
+            item.addEventListener('click', () => {
+                // 全てのアクティブクラスを削除
+                navItems.forEach(nav => nav.classList.remove('active'));
+                screens.forEach(screen => screen.classList.remove('active'));
+
+                // クリックされたアイテムにアクティブクラスを追加
+                item.classList.add('active');
+                
+                // 対応する画面を表示
+                const targetScreen = item.getAttribute('data-screen');
+                document.getElementById(targetScreen).classList.add('active');
+            });
+        });
+
+        // ポケモン画像にクリックイベントを追加（遊び心）
+        const pokemonImages = document.querySelectorAll('.pokemon-image');
+        pokemonImages.forEach(img => {
+            img.addEventListener('click', () => {
+                img.style.transform = 'scale(1.2) rotate(360deg)';
+                setTimeout(() => {
+                    img.style.transform = 'scale(1) rotate(0deg)';
+                }, 500);
+            });
+        });
+
+        // スクロール時のアニメーション効果
+        window.addEventListener('scroll', () => {
+            const cards = document.querySelectorAll('.skill-card, .project-card');
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                if (rect.top < window.innerHeight && rect.bottom > 0) {
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
