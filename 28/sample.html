@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ホバー時黄色円エフェクト</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .card {
+            position: relative;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            overflow: visible;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+        }
+
+        .card h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .card p {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .card .logo {
+            font-size: 14px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* 黄色い円のスタイル */
+        .yellow-circle {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 235, 59, 0.9);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .card:hover .yellow-circle {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* カード内のコンテンツを円の下に表示 */
+        .card-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 特別なスタイルのカード */
+        .card.special {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .card.special h2,
+        .card.special p,
+        .card.special .logo {
+            color: white;
+        }
+
+        .card.special .yellow-circle {
+            background: rgba(255, 193, 7, 0.8);
+        }
+
+        /* アニメーション効果を追加 */
+        @keyframes pulse {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+        }
+
+        .card:hover .yellow-circle {
+            animation: pulse 0.6s ease-out;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .card {
+                padding: 30px;
+            }
+            
+            .yellow-circle {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+
+        <div class="card special">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+
+        <div class="card special">
+            <div class="yellow-circle"></div>
+            <div class="card-content">
+                <h2>サンプル</h2>
+                <p>サンプルサンプルサンプルサンプルサンプル</p>
+                <div class="logo">sample</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
