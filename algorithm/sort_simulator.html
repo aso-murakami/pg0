@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ソートアルゴリズムシミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        /* バーのトランジションを滑らかにするためのカスタムCSS */
+        .bar {
+            transition: height 300ms ease-in-out, background-color 300ms ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-indigo-600">ソートアルゴリズムシミュレーター</h1>
+            <p class="text-gray-600 mt-2">基本的なソートアルゴリズムの動きを視覚的に学ぼう！</p>
+        </header>
+
+        <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
+            <!-- 操作パネル -->
+            <div class="controls grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center mb-6">
+                <div class="flex flex-col">
+                    <label for="algorithm" class="text-sm font-medium text-gray-700 mb-1">アルゴリズム</label>
+                    <select id="algorithm" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5">
+                        <option value="selection">基本選択法</option>
+                        <option value="bubble">交換法 (バブルソート)</option>
+                        <option value="insertion">挿入法</option>
+                    </select>
+                </div>
+                <div class="flex flex-col">
+                     <label for="speed" class="text-sm font-medium text-gray-700 mb-1">速度</label>
+                    <select id="speed" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5">
+                        <option value="150">標準</option>
+                        <option value="50">速い</option>
+                        <option value="300">遅い</option>
+                    </select>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:space-x-2 sm:col-span-2 md:col-span-2 self-end">
+                    <button id="startBtn" class="w-full sm:w-auto flex-1 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 mb-2 sm:mb-0">自動実行</button>
+                    <button id="stepBtn" class="w-full sm:w-auto flex-1 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300 mb-2 sm:mb-0">ステップ実行</button>
+                    <button id="resetBtn" class="w-full sm:w-auto flex-1 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition duration-300">リセット</button>
+                </div>
+            </div>
+
+            <!-- 解説表示エリア -->
+            <div id="explanation" class="text-center font-semibold text-gray-700 bg-gray-100 p-3 rounded-md min-h-[50px] flex items-center justify-center mb-6">
+                アルゴリズムを選択して開始してください。
+            </div>
+
+            <!-- バー表示エリア -->
+            <div id="array-container" class="w-full h-64 md:h-80 bg-gray-50 rounded-lg flex justify-center items-end p-2 border-2 border-gray-200 space-x-px">
+                <!-- JavaScriptによってバーがここに生成されます -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM要素の取得 ---
+        const arrayContainer = document.getElementById('array-container');
+        const explanationDiv = document.getElementById('explanation');
+        const algorithmSelect = document.getElementById('algorithm');
+        const speedSelect = document.getElementById('speed');
+        const startBtn = document.getElementById('startBtn');
+        const stepBtn = document.getElementById('stepBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // --- グローバル変数 ---
+        let array = [];
+        let steps = []; // ソートの各ステップの状態を記録する配列
+        let currentStep = 0; // ステップ実行時の現在のステップ
+        let isSorting = false; // ソート実行中かどうかのフラグ
+        const ARRAY_SIZE = 20; // 配列の要素数
+        let delay = 150; // アニメーションの速度(ms)
+
+        // --- ユーティリティ関数 ---
+
+        /**
+         * 指定された時間(ms)だけ処理を待機する非同期関数
+         * @param {number} ms - 待機するミリ秒
+         */
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        /**
+         * UIのボタンやセレクトボックスの有効/無効を切り替える
+         * @param {boolean} sorting - ソート実行中かどうか
+         */
+        const updateControlsState = (sorting) => {
+            isSorting = sorting;
+            startBtn.disabled = sorting;
+            stepBtn.disabled = sorting;
+            resetBtn.disabled = sorting;
+            algorithmSelect.disabled = sorting;
+            speedSelect.disabled = sorting;
+        };
+
+        // --- 配列の生成と描画 ---
+
+        /**
+         * ランダムな数値の配列を生成し、画面を初期化する
+         */
+        const generateArray = () => {
+            array = [];
+            for (let i = 0; i < ARRAY_SIZE; i++) {
+                array.push(Math.floor(Math.random() * 100) + 5);
+            }
+            steps = [];
+            currentStep = 0;
+            renderArray(array);
+            explanationDiv.textContent = 'アルゴリズムを選択して開始してください。';
+            updateControlsState(false);
+            stepBtn.disabled = false; // リセット後はステップ実行を有効にする
+        };
+
+        /**
+         * 配列の状態を元にバーを画面に描画する
+         * @param {number[]} arr - 描画する配列
+         * @param {object} highlights - ハイライトするインデックス情報
+         */
+        const renderArray = (arr, highlights = {}) => {
+            arrayContainer.innerHTML = '';
+            const itemWidth = 100 / arr.length;
+
+            arr.forEach((value, index) => {
+                const bar = document.createElement('div');
+                // バー自体をflexコンテナにして、内部のテキストを配置
+                bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
+                bar.style.height = `${value}%`;
+                bar.style.width = `${itemWidth}%`;
+                
+                // バーの内部に数値をテキストとして追加
+                bar.textContent = value;
+                // テキストのスタイルを設定
+                bar.classList.add('text-white', 'text-xs', 'font-bold', 'overflow-hidden');
+
+                // バーが短すぎてテキストが見えない場合は、テキストを透明にする
+                if (value < 15) {
+                    bar.classList.add('text-transparent');
+                }
+                
+                // ハイライトの状態に応じて背景色を設定
+                if (highlights.sorted && highlights.sorted.includes(index)) {
+                    bar.classList.add('bg-green-500'); // ソート済み: 緑
+                } else if (highlights.swapping && highlights.swapping.includes(index)) {
+                    bar.classList.add('bg-red-500'); // 交換中: 赤
+                } else if (highlights.comparing && highlights.comparing.includes(index)) {
+                    bar.classList.add('bg-yellow-400'); // 比較中: 黄
+                } else {
+                    bar.classList.add('bg-indigo-400'); // 通常: 青
+                }
+                
+                arrayContainer.appendChild(bar);
+            });
+        };
+
+        /**
+         * ソート過程の1ステップを記録する
+         * @param {number[]} arr - 現在の配列の状態
+         * @param {object} highlights - ハイライト情報
+         * @param {string} message - 表示する解説メッセージ
+         */
+        const recordStep = (arr, highlights, message) => {
+            steps.push({ array: [...arr], highlights, message });
+        };
+        
+        // --- ソートアルゴリズム ---
+        // 各アルゴリズムは、実際のソートは行わず、ソートの過程を`steps`配列に記録する
+
+        /**
+         * 基本選択法 (Selection Sort) のステップを記録
+         */
+        const selectionSort = () => {
+            const arr = [...array];
+            const sortedIndices = [];
+            for (let i = 0; i < arr.length - 1; i++) {
+                let minIndex = i;
+                recordStep(arr, { comparing: [minIndex], sorted: [...sortedIndices] }, `${i + 1}番目の位置の最小値を探します (現在: ${arr[minIndex]})`);
+
+                for (let j = i + 1; j < arr.length; j++) {
+                    recordStep(arr, { comparing: [minIndex, j], sorted: [...sortedIndices] }, `現在の最小値 (${arr[minIndex]}) と ${arr[j]} を比較`);
+                    if (arr[j] < arr[minIndex]) {
+                        minIndex = j;
+                        recordStep(arr, { comparing: [minIndex, j], sorted: [...sortedIndices] }, `最小値を ${arr[minIndex]} に更新`);
+                    }
+                }
+                
+                recordStep(arr, { swapping: [i, minIndex], sorted: [...sortedIndices] }, `最小値 ${arr[minIndex]} を ${i + 1}番目の ${arr[i]} と交換します`);
+                [arr[i], arr[minIndex]] = [arr[minIndex], arr[i]];
+                sortedIndices.push(i);
+                recordStep(arr, { comparing: [i], sorted: [...sortedIndices] }, `${i + 1}番目の位置が確定しました`);
+            }
+            const allSorted = Array.from({length: arr.length}, (_, k) => k);
+            recordStep(arr, { sorted: allSorted }, 'ソートが完了しました！');
+        };
+
+        /**
+         * 交換法 (Bubble Sort) のステップを記録
+         */
+        const bubbleSort = () => {
+            const arr = [...array];
+            let n = arr.length;
+            let swapped;
+            const sortedIndices = [];
+            do {
+                swapped = false;
+                for (let i = 0; i < n - 1; i++) {
+                    recordStep(arr, { comparing: [i, i + 1], sorted: [...sortedIndices] }, `隣り合う ${arr[i]} と ${arr[i+1]} を比較`);
+                    if (arr[i] > arr[i + 1]) {
+                        recordStep(arr, { swapping: [i, i + 1], sorted: [...sortedIndices] }, `${arr[i]} > ${arr[i+1]} なので交換します`);
+                        [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
+                        swapped = true;
+                    }
+                }
+                sortedIndices.unshift(n-1);
+                recordStep(arr, { comparing: [], sorted: [...sortedIndices] }, `走査完了。${n}番目に大きい数が確定しました。`);
+                n--;
+            } while (swapped);
+            const allSorted = Array.from({length: arr.length}, (_, k) => k);
+            recordStep(arr, { sorted: allSorted }, 'ソートが完了しました！');
+        };
+
+        /**
+         * 挿入法 (Insertion Sort) のステップを記録
+         */
+        const insertionSort = () => {
+            const arr = [...array];
+            for (let i = 1; i < arr.length; i++) {
+                let current = arr[i];
+                let j = i - 1;
+                const sortedIndices = Array.from({length: i}, (_, k) => k);
+                recordStep(arr, { comparing: [i], sorted: [...sortedIndices] }, `${i + 1}番目の要素 ${current} を適切な位置に挿入します`);
+                
+                while (j >= 0 && arr[j] > current) {
+                    recordStep(arr, { swapping: [j, j + 1], comparing: [i], sorted: [...sortedIndices].filter(idx => idx !== j+1) }, `${arr[j]} > ${current} なので、${arr[j]}を右にずらします`);
+                    arr[j + 1] = arr[j];
+                    j--;
+                }
+                arr[j + 1] = current;
+                sortedIndices.push(i);
+                recordStep(arr, { comparing: [j + 1], sorted: [...sortedIndices] }, `位置 ${j + 2} に ${current} を挿入しました`);
+            }
+            const allSorted = Array.from({length: arr.length}, (_, k) => k);
+            recordStep(arr, { sorted: allSorted }, 'ソートが完了しました！');
+        };
+
+        // --- 実行制御 ---
+
+        /**
+         * ソート処理を開始する
+         * @param {boolean} isAuto - 自動実行するかどうか
+         */
+        const startSorting = (isAuto = false) => {
+            if (isSorting) return;
+            steps = [];
+            currentStep = 0;
+            const selectedAlgorithm = algorithmSelect.value;
+
+            // 選択されたアルゴリズムを実行してステップを生成
+            if (selectedAlgorithm === 'selection') selectionSort();
+            else if (selectedAlgorithm === 'bubble') bubbleSort();
+            else if (selectedAlgorithm === 'insertion') insertionSort();
+            
+            if (isAuto) {
+                runAuto();
+            } else {
+                updateControlsState(true); // ステップ実行でも操作は一旦無効に
+                runStep();
+            }
+        };
+        
+        /**
+         * 自動でソートアニメーションを実行する
+         */
+        const runAuto = async () => {
+            updateControlsState(true);
+            for(let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                explanationDiv.textContent = step.message;
+                renderArray(step.array, step.highlights);
+                await sleep(delay);
+            }
+            resetBtn.disabled = false; // 終了後はリセットボタンのみ有効化
+        };
+
+        /**
+         * ソートを1ステップだけ実行する
+         */
+        const runStep = () => {
+            if (currentStep < steps.length) {
+                const step = steps[currentStep];
+                explanationDiv.textContent = step.message;
+                renderArray(step.array, step.highlights);
+                currentStep++;
+                
+                if (currentStep >= steps.length){
+                    stepBtn.disabled = true; // 最後まで行ったらステップ実行ボタンを無効化
+                    resetBtn.disabled = false;
+                } else {
+                    stepBtn.disabled = false; // 次のステップがあるので有効
+                    resetBtn.disabled = false;
+                }
+            }
+        };
+
+        // --- イベントリスナーの設定 ---
+        startBtn.addEventListener('click', () => startSorting(true));
+        
+        stepBtn.addEventListener('click', () => {
+            if (steps.length === 0) { // 最初の1回目
+                startSorting(false);
+            } else {
+                runStep();
+            }
+        });
+
+        resetBtn.addEventListener('click', generateArray);
+        algorithmSelect.addEventListener('change', generateArray);
+        speedSelect.addEventListener('change', (e) => {
+            delay = parseInt(e.target.value);
+        });
+
+        // --- 初期化 ---
+        window.onload = () => {
+            delay = parseInt(speedSelect.value);
+            generateArray();
+        };
+    </script>
+</body>
+</html>
