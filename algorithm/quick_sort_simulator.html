@@ -13,13 +13,19 @@
         .bar {
             transition: height 300ms ease-in-out, background-color 300ms ease-in-out;
         }
+        .separator {
+            width: 2px;
+            background-color: #6366f1;
+            height: 100%;
+            margin: 0 2px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
     <div class="container mx-auto p-4 md:p-8 max-w-5xl">
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-indigo-600">クイックソートシミュレーター</h1>
-            <p class="text-gray-600 mt-2">分割統治法の代表的なアルゴリズムを視覚的に学ぼう！</p>
+            <p class="text-gray-600 mt-2">分割統治法による整列アルゴリズムを視覚的に学ぼう！</p>
         </header>
         <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
             <div class="controls grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-center mb-6">
@@ -41,11 +47,11 @@
                     <button id="resetBtn" class="w-full sm:w-auto flex-1 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition duration-300">リセット</button>
                 </div>
             </div>
-            <div id="pivot-info" class="text-center font-semibold text-indigo-700 bg-indigo-100 p-2 rounded mb-4">ピボット: -</div>
+            <div id="pivot-info" class="text-center font-semibold text-purple-700 bg-purple-100 p-2 rounded mb-4">ピボット: -</div>
             <div id="explanation" class="text-center font-semibold text-gray-700 bg-gray-100 p-3 rounded-md min-h-[50px] flex items-center justify-center mb-6">
                 クイックソートを開始してください。
             </div>
-            <div id="array-container" class="w-full h-64 md:h-80 bg-gray-50 rounded-lg flex justify-center items-end p-2 border-2 border-gray-200 space-x-px">
+            <div id="array-container" class="w-full h-64 md:h-80 bg-gray-50 rounded-lg flex justify-center items-end p-2 border-2 border-gray-200">
             </div>
         </div>
     </div>
@@ -66,6 +72,7 @@
         let delay = 150;
 
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
         const updateControlsState = (sorting) => {
             isSorting = sorting;
             startBtn.disabled = sorting;
@@ -73,6 +80,7 @@
             resetBtn.disabled = sorting;
             speedSelect.disabled = sorting;
         };
+
         const generateArray = () => {
             array = [];
             for (let i = 0; i < ARRAY_SIZE; i++) {
@@ -86,101 +94,170 @@
             updateControlsState(false);
             stepBtn.disabled = false;
         };
-        const renderArray = (arr, highlights = {}) => {
+
+        const renderArray = (arr, highlights = {}, partitions = []) => {
             arrayContainer.innerHTML = '';
-            const itemWidth = 100 / arr.length;
+            const itemWidth = 90 / arr.length; // セパレーター用にさらに幅を減らす
+            const allPartitions = new Set([...partitions]); // 既存の分割点を保持
+            
+            // ソート済みの要素の境界も分割点として追加
+            if (highlights.sorted) {
+                highlights.sorted.forEach(idx => {
+                    if (idx > 0) allPartitions.add(idx);
+                });
+            }
+
             arr.forEach((value, index) => {
+                // 分割点の場合のみセパレーターを追加
+                if (index > 0 && allPartitions.has(index)) {
+                    const separator = document.createElement('div');
+                    separator.classList.add('separator');
+                    separator.style.backgroundColor = '#4f46e5'; // 濃い青色
+                    separator.style.width = '4px';
+                    arrayContainer.appendChild(separator);
+                }
+
                 const bar = document.createElement('div');
                 bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
                 bar.style.height = `${value}%`;
                 bar.style.width = `${itemWidth}%`;
+                
                 bar.textContent = value;
                 bar.classList.add('text-white', 'text-xs', 'font-bold', 'overflow-hidden');
+                
                 if (value < 15) {
                     bar.classList.add('text-transparent');
                 }
+                
+                // 色分けの優先順位に従って背景色を設定
                 if (highlights.sorted && highlights.sorted.includes(index)) {
-                    bar.classList.add('bg-green-500');
+                    bar.classList.add('bg-green-500'); // ソート済み: 緑
+                } else if (highlights.pivot === index) {
+                    bar.classList.add('bg-purple-500'); // ピボット: 紫
                 } else if (highlights.swapping && highlights.swapping.includes(index)) {
-                    bar.classList.add('bg-red-500');
+                    bar.classList.add('bg-red-500'); // 交換中: 赤
+                } else if (highlights.candidate && highlights.candidate.includes(index)) {
+                    bar.classList.add('bg-orange-400'); // 交換候補: オレンジ
                 } else if (highlights.comparing && highlights.comparing.includes(index)) {
-                    bar.classList.add('bg-yellow-400');
-                } else if (highlights.swapCandidate && highlights.swapCandidate.includes(index)) {
-                    bar.classList.add('bg-orange-400');
-                } else if (highlights.pivot && highlights.pivot.includes(index)) {
-                    bar.classList.add('bg-purple-500');
+                    bar.classList.add('bg-yellow-400'); // 比較中: 黄
                 } else if (highlights.partition && highlights.partition.includes(index)) {
-                    bar.classList.add('bg-pink-400');
+                    bar.classList.add('bg-pink-400'); // 分割範囲: ピンク
                 } else {
-                    bar.classList.add('bg-indigo-400');
+                    bar.classList.add('bg-indigo-400'); // 通常: 青
                 }
+                
                 arrayContainer.appendChild(bar);
             });
         };
-        const recordStep = (arr, highlights, message, pivot = null) => {
-            steps.push({ array: [...arr], highlights, message, pivot });
+
+        const recordStep = (arr, highlights, message, pivotValue = null, partitions = []) => {
+            steps.push({ array: [...arr], highlights, message, pivotValue, partitions });
+        };
+
+        const partition = (arr, low, high, steps) => {
+            const pivot = arr[high];
+            recordStep(
+                arr,
+                { partition: Array.from({length: high - low + 1}, (_, i) => i + low), pivot: high },
+                `区間[${low + 1}..${high + 1}]でピボット値${pivot}を選択します`,
+                pivot
+            );
+
+            let i = low - 1;
+            for (let j = low; j < high; j++) {
+                recordStep(
+                    arr,
+                    { 
+                        partition: Array.from({length: high - low + 1}, (_, i) => i + low),
+                        comparing: [j],
+                        pivot: high,
+                        candidate: [i + 1]
+                    },
+                    `${arr[j]} とピボット値 ${pivot} を比較します`,
+                    pivot
+                );
+
+                if (arr[j] <= pivot) {
+                    i++;
+                    if (i !== j) {
+                        recordStep(
+                            arr,
+                            { 
+                                partition: Array.from({length: high - low + 1}, (_, i) => i + low),
+                                swapping: [i, j],
+                                pivot: high
+                            },
+                            `${arr[j]} ≤ ${pivot} なので、${arr[i]} と ${arr[j]} を交換します`,
+                            pivot
+                        );
+                        [arr[i], arr[j]] = [arr[j], arr[i]];
+                    }
+                }
+            }
+
+            recordStep(
+                arr,
+                { 
+                    partition: Array.from({length: high - low + 1}, (_, i) => i + low),
+                    swapping: [i + 1, high],
+                    pivot: high
+                },
+                `ピボット値 ${pivot} を正しい位置に移動します`,
+                pivot
+            );
+            [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
+            return i + 1;
+        };
+
+        const quickSortHelper = (arr, low, high, steps, sortedIndices = new Set()) => {
+            if (low < high) {
+                const pi = partition(arr, low, high, steps);
+                sortedIndices.add(pi);
+                
+                recordStep(
+                    arr,
+                    { sorted: Array.from(sortedIndices) },
+                    `ピボット値 ${arr[pi]} が正しい位置に配置されました`,
+                    null,
+                    [pi] // 分割点を表示
+                );
+
+                // 左部分の処理
+                if (low < pi - 1) {
+                    recordStep(
+                        arr,
+                        { partition: Array.from({length: pi - low}, (_, i) => i + low) },
+                        `左部分[${low + 1}..${pi}]のソートを開始します`,
+                        null,
+                        [pi]
+                    );
+                }
+                quickSortHelper(arr, low, pi - 1, steps, sortedIndices);
+
+                // 右部分の処理
+                if (pi + 1 < high) {
+                    recordStep(
+                        arr,
+                        { partition: Array.from({length: high - (pi + 1) + 1}, (_, i) => i + pi + 1) },
+                        `右部分[${pi + 2}..${high + 1}]のソートを開始します`,
+                        null,
+                        [pi]
+                    );
+                }
+                quickSortHelper(arr, pi + 1, high, steps, sortedIndices);
+            } else if (low === high) {
+                sortedIndices.add(low);
+                recordStep(
+                    arr,
+                    { sorted: Array.from(sortedIndices) },
+                    `要素 ${arr[low]} は既に正しい位置にあります`
+                );
+            }
         };
 
         const quickSort = () => {
             const arr = [...array];
-            const sortedIndices = new Set();
-
-            const partition = (low, high) => {
-                const pivot = arr[high];
-                let i = low - 1;
-                const partitionRange = Array.from({length: high - low + 1}, (_, k) => k + low);
-                
-                recordStep(arr, { partition: partitionRange, pivot: [high] }, 
-                    `区間[${low + 1}~${high + 1}]をピボット値${pivot}で分割します`, pivot);
-
-                for (let j = low; j < high; j++) {
-                    // 現在の比較対象と交換候補を表示
-                    recordStep(arr, { 
-                        comparing: [j], 
-                        swapCandidate: i >= low ? [i + 1] : [], 
-                        partition: partitionRange, 
-                        pivot: [high] 
-                    }, `${arr[j]} をピボット値 ${pivot} と比較します`, pivot);
-
-                    if (arr[j] <= pivot) {
-                        i++;
-                        if (i !== j) {
-                            recordStep(arr, { 
-                                swapping: [i, j], 
-                                partition: partitionRange, 
-                                pivot: [high] 
-                            }, `${arr[j]} ≤ ${pivot} なので ${arr[i]} と交換します`, pivot);
-                            [arr[i], arr[j]] = [arr[j], arr[i]];
-                        }
-                    }
-                }
-                
-                if (i + 1 !== high) {
-                    recordStep(arr, { swapping: [i + 1, high], partition: partitionRange }, 
-                        `ピボットを正しい位置（${i + 2}番目）に配置します`, pivot);
-                    [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
-                }
-
-                return i + 1;
-            };
-
-            const quickSortRecursive = (low, high) => {
-                if (low < high) {
-                    const pi = partition(low, high);
-                    sortedIndices.add(pi);
-                    recordStep(arr, { sorted: Array.from(sortedIndices) }, 
-                        `ピボット値${arr[pi]}の位置が確定しました`, arr[pi]);
-                    
-                    quickSortRecursive(low, pi - 1);
-                    quickSortRecursive(pi + 1, high);
-                } else if (low === high) {
-                    sortedIndices.add(low);
-                    recordStep(arr, { sorted: Array.from(sortedIndices) }, 
-                        `要素${arr[low]}の位置が確定しました`, arr[low]);
-                }
-            };
-
-            quickSortRecursive(0, arr.length - 1);
+            quickSortHelper(arr, 0, arr.length - 1, steps);
             const allSorted = Array.from({length: arr.length}, (_, k) => k);
             recordStep(arr, { sorted: allSorted }, 'ソートが完了しました！');
         };
@@ -197,24 +274,27 @@
                 runStep();
             }
         };
+
         const runAuto = async () => {
             updateControlsState(true);
             for(let i = 0; i < steps.length; i++) {
                 const step = steps[i];
                 explanationDiv.textContent = step.message;
-                pivotInfo.textContent = `ピボット: ${step.pivot ?? '-'}`;
-                renderArray(step.array, step.highlights);
+                pivotInfo.textContent = step.pivotValue !== null ? `ピボット: ${step.pivotValue}` : 'ピボット: -';
+                renderArray(step.array, step.highlights, step.partitions || []);
                 await sleep(delay);
             }
             resetBtn.disabled = false;
         };
+
         const runStep = () => {
             if (currentStep < steps.length) {
                 const step = steps[currentStep];
                 explanationDiv.textContent = step.message;
-                pivotInfo.textContent = `ピボット: ${step.pivot ?? '-'}`;
-                renderArray(step.array, step.highlights);
+                pivotInfo.textContent = step.pivotValue !== null ? `ピボット: ${step.pivotValue}` : 'ピボット: -';
+                renderArray(step.array, step.highlights, step.partitions || []);
                 currentStep++;
+                
                 if (currentStep >= steps.length){
                     stepBtn.disabled = true;
                     resetBtn.disabled = false;
@@ -224,6 +304,7 @@
                 }
             }
         };
+
         startBtn.addEventListener('click', () => startSorting(true));
         stepBtn.addEventListener('click', () => {
             if (steps.length === 0) {
@@ -236,6 +317,7 @@
         speedSelect.addEventListener('change', (e) => {
             delay = parseInt(e.target.value);
         });
+
         window.onload = () => {
             delay = parseInt(speedSelect.value);
             generateArray();
