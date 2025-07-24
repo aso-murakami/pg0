@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヒープソートシミュレーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+        }
+        .bar {
+            transition: height 300ms ease-in-out, background-color 300ms ease-in-out;
+        }
+        .node {
+            transition: all 300ms ease-in-out;
+        }
+        .edge {
+            stroke: #4f46e5;
+            stroke-width: 2;
+        }
+        .heap-tree {
+            width: 100%;
+            height: 300px;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+    <div class="container mx-auto p-4 md:p-8 max-w-5xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-indigo-600">ヒープソートシミュレーター</h1>
+            <p class="text-gray-600 mt-2">完全二分木による整列アルゴリズムを視覚的に学ぼう！</p>
+        </header>
+        <div class="bg-white rounded-lg shadow-md p-4 md:p-6">
+            <div class="controls grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-center mb-6">
+                <div class="flex flex-col">
+                    <label class="text-sm font-medium text-gray-700 mb-1">アルゴリズム</label>
+                    <input type="text" value="ヒープソート" disabled class="w-full bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5">
+                </div>
+                <div class="flex flex-col">
+                    <label for="speed" class="text-sm font-medium text-gray-700 mb-1">速度</label>
+                    <select id="speed" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5">
+                        <option value="150">標準</option>
+                        <option value="50">速い</option>
+                        <option value="300">遅い</option>
+                    </select>
+                </div>
+                <div class="flex flex-col sm:flex-row sm:space-x-2 sm:col-span-2 md:col-span-1 self-end">
+                    <button id="startBtn" class="w-full sm:w-auto flex-1 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 mb-2 sm:mb-0">自動実行</button>
+                    <button id="stepBtn" class="w-full sm:w-auto flex-1 bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600 transition duration-300 mb-2 sm:mb-0">ステップ実行</button>
+                    <button id="resetBtn" class="w-full sm:w-auto flex-1 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition duration-300">リセット</button>
+                </div>
+            </div>
+            <div id="heap-info" class="text-center font-semibold text-purple-700 bg-purple-100 p-2 rounded mb-4">ヒープサイズ: 7</div>
+            <div id="explanation" class="text-center font-semibold text-gray-700 bg-gray-100 p-3 rounded-md min-h-[50px] flex items-center justify-center mb-6">
+                ヒープソートを開始してください。
+            </div>
+            
+            <!-- 木構造の表示エリア -->
+            <div class="mb-6 bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                <div class="text-sm font-medium text-gray-700 mb-2">ヒープの木構造:</div>
+                <div id="tree-container" class="heap-tree"></div>
+            </div>
+            
+            <!-- 配列の表示エリア -->
+            <div class="bg-gray-50 rounded-lg p-4 border-2 border-gray-200">
+                <div class="text-sm font-medium text-gray-700 mb-2">配列の状態:</div>
+                <div id="array-container" class="w-full h-48 bg-white rounded-lg flex justify-center items-end p-2"></div>
+                <div class="mt-4">
+                    <div class="text-sm font-medium text-gray-700 mb-2">ソート済み要素:</div>
+                    <div id="sorted-container" class="w-full h-48 bg-white rounded-lg flex justify-center items-end p-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const treeContainer = document.getElementById('tree-container');
+        const arrayContainer = document.getElementById('array-container');
+        const sortedContainer = document.getElementById('sorted-container');
+        const explanationDiv = document.getElementById('explanation');
+        const speedSelect = document.getElementById('speed');
+        const startBtn = document.getElementById('startBtn');
+        const stepBtn = document.getElementById('stepBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const heapInfo = document.getElementById('heap-info');
+
+        let array = [];
+        let sortedArray = [];
+        let steps = [];
+        let currentStep = 0;
+        let isSorting = false;
+        const ARRAY_SIZE = 7;
+        let delay = 150;
+
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+        // 木構造のノード座標を計算
+        const calculateNodePositions = (size) => {
+            const positions = [];
+            const levels = Math.ceil(Math.log2(size + 1));
+            const width = treeContainer.clientWidth;
+            const height = treeContainer.clientHeight;
+            const levelHeight = height / levels;
+            
+            for (let i = 0; i < size; i++) {
+                const level = Math.floor(Math.log2(i + 1));
+                const nodesInLevel = Math.min(Math.pow(2, level), size - Math.pow(2, level) + 1);
+                const position = i - Math.pow(2, level) + 1;
+                const xSpacing = width / (nodesInLevel + 1);
+                
+                positions[i] = {
+                    x: (position + 1) * xSpacing,
+                    y: (level + 0.5) * levelHeight
+                };
+            }
+            return positions;
+        };
+
+        // 木構造の描画
+        const renderTree = (arr, heapSize, highlights = {}) => {
+            const positions = calculateNodePositions(heapSize);
+            treeContainer.innerHTML = '';
+            
+            // SVG要素の作成
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("width", "100%");
+            svg.setAttribute("height", "100%");
+            treeContainer.appendChild(svg);
+            
+            // エッジの描画
+            for (let i = 0; i < heapSize; i++) {
+                const leftChild = 2 * i + 1;
+                const rightChild = 2 * i + 2;
+                
+                if (leftChild < heapSize) {
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", positions[i].x);
+                    line.setAttribute("y1", positions[i].y);
+                    line.setAttribute("x2", positions[leftChild].x);
+                    line.setAttribute("y2", positions[leftChild].y);
+                    line.classList.add("edge");
+                    svg.appendChild(line);
+                }
+                
+                if (rightChild < heapSize) {
+                    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line.setAttribute("x1", positions[i].x);
+                    line.setAttribute("y1", positions[i].y);
+                    line.setAttribute("x2", positions[rightChild].x);
+                    line.setAttribute("y2", positions[rightChild].y);
+                    line.classList.add("edge");
+                    svg.appendChild(line);
+                }
+            }
+            
+            // ノードの描画
+            for (let i = 0; i < heapSize; i++) {
+                const node = document.createElement("div");
+                node.classList.add("node", "absolute", "flex", "items-center", "justify-center",
+                    "w-10", "h-10", "rounded-full", "text-white", "font-bold", "transition-all");
+                
+                if (highlights.comparing && highlights.comparing.includes(i)) {
+                    node.classList.add("bg-yellow-400");
+                } else if (highlights.swapping && highlights.swapping.includes(i)) {
+                    node.classList.add("bg-red-500");
+                } else if (highlights.heapified && highlights.heapified.includes(i)) {
+                    node.classList.add("bg-green-500");
+                } else {
+                    node.classList.add("bg-indigo-500");
+                }
+                
+                node.style.left = `${positions[i].x - 20}px`;
+                node.style.top = `${positions[i].y - 20}px`;
+                node.textContent = arr[i];
+                treeContainer.appendChild(node);
+            }
+        };
+
+        const renderArrays = (arr, sorted = [], highlights = {}) => {
+            // メイン配列の描画
+            arrayContainer.innerHTML = '';
+            const itemWidth = Math.min(90 / Math.max(arr.length, 1), 12);
+            
+            arr.forEach((value, index) => {
+                const bar = document.createElement('div');
+                bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
+                bar.style.height = `${value}%`;
+                bar.style.width = `${itemWidth}%`;
+                bar.textContent = value;
+                bar.classList.add('text-white', 'text-xs', 'font-bold');
+
+                if (highlights.comparing && highlights.comparing.includes(index)) {
+                    bar.classList.add('bg-yellow-400');
+                } else if (highlights.swapping && highlights.swapping.includes(index)) {
+                    bar.classList.add('bg-red-500');
+                } else if (highlights.heapified && highlights.heapified.includes(index)) {
+                    bar.classList.add('bg-green-500');
+                } else {
+                    bar.classList.add('bg-indigo-400');
+                }
+
+                arrayContainer.appendChild(bar);
+            });
+
+            // ソート済み配列の描画
+            sortedContainer.innerHTML = '';
+            sorted.forEach((value) => {
+                const bar = document.createElement('div');
+                bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
+                bar.style.height = `${value}%`;
+                bar.style.width = `${itemWidth}%`;
+                bar.textContent = value;
+                bar.classList.add('text-white', 'text-xs', 'font-bold', 'bg-green-500');
+                sortedContainer.appendChild(bar);
+            });
+        };
+
+        const recordStep = (arr, sorted, heapSize, highlights, message) => {
+            steps.push({
+                array: [...arr],
+                sorted: [...sorted],
+                heapSize,
+                highlights,
+                message
+            });
+        };
+
+        const heapify = (arr, n, i, sorted) => {
+            let largest = i;
+            const left = 2 * i + 1;
+            const right = 2 * i + 2;
+
+            recordStep(arr, sorted, n, 
+                { comparing: [i, left, right].filter(x => x < n) },
+                `ノード ${arr[i]} の子要素を確認します`
+            );
+
+            if (left < n && arr[left] > arr[largest]) {
+                largest = left;
+            }
+            if (right < n && arr[right] > arr[largest]) {
+                largest = right;
+            }
+
+            if (largest !== i) {
+                recordStep(arr, sorted, n,
+                    { swapping: [i, largest] },
+                    `${arr[i]} と ${arr[largest]} を交換します`
+                );
+                
+                [arr[i], arr[largest]] = [arr[largest], arr[i]];
+                
+                recordStep(arr, sorted, n,
+                    { heapified: [i] },
+                    `部分木のヒープ化が完了しました`
+                );
+
+                heapify(arr, n, largest, sorted);
+            }
+        };
+
+        const heapSort = () => {
+            const arr = [...array];
+            const sorted = [];
+            let n = arr.length;
+
+            // 初期ヒープの構築
+            for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
+                heapify(arr, n, i, sorted);
+            }
+
+            recordStep(arr, sorted, n,
+                { heapified: Array.from({length: n}, (_, i) => i) },
+                '初期ヒープの構築が完了しました'
+            );
+
+            // ヒープから要素を1つずつ取り出してソート
+            for (let i = n - 1; i > 0; i--) {
+                recordStep(arr, sorted, i + 1,
+                    { swapping: [0, i] },
+                    `最大値 ${arr[0]} をヒープから取り出します`
+                );
+
+                [arr[0], arr[i]] = [arr[i], arr[0]];
+                sorted.unshift(arr[i]);
+
+                recordStep(arr, sorted, i,
+                    { heapified: Array.from({length: i}, (_, idx) => idx) },
+                    `残りのヒープを再構築します`
+                );
+
+                heapify(arr, i, 0, sorted);
+            }
+
+            sorted.unshift(arr[0]);
+            recordStep(arr, sorted, 0, {}, 'ソートが完了しました！');
+        };
+
+        const generateArray = () => {
+            array = [];
+            sortedArray = [];
+            for (let i = 0; i < ARRAY_SIZE; i++) {
+                array.push(Math.floor(Math.random() * 90) + 10);
+            }
+            steps = [];
+            currentStep = 0;
+            renderTree(array, array.length);
+            renderArrays(array, []);
+            explanationDiv.textContent = 'ヒープソートを開始してください。';
+            heapInfo.textContent = `ヒープサイズ: ${array.length}`;
+            updateControlsState(false);
+            stepBtn.disabled = false;
+        };
+
+        const updateControlsState = (sorting) => {
+            isSorting = sorting;
+            startBtn.disabled = sorting;
+            stepBtn.disabled = sorting;
+            resetBtn.disabled = sorting;
+            speedSelect.disabled = sorting;
+        };
+
+        const startSorting = (isAuto = false) => {
+            if (isSorting) return;
+            steps = [];
+            currentStep = 0;
+            heapSort();
+            if (isAuto) {
+                runAuto();
+            } else {
+                updateControlsState(true);
+                runStep();
+            }
+        };
+
+        const runAuto = async () => {
+            updateControlsState(true);
+            for (let i = 0; i < steps.length; i++) {
+                const step = steps[i];
+                explanationDiv.textContent = step.message;
+                heapInfo.textContent = `ヒープサイズ: ${step.heapSize}`;
+                renderTree(step.array, step.heapSize, step.highlights);
+                renderArrays(step.array, step.sorted, step.highlights);
+                await sleep(delay);
+            }
+            resetBtn.disabled = false;
+        };
+
+        const runStep = () => {
+            if (currentStep < steps.length) {
+                const step = steps[currentStep];
+                explanationDiv.textContent = step.message;
+                heapInfo.textContent = `ヒープサイズ: ${step.heapSize}`;
+                renderTree(step.array, step.heapSize, step.highlights);
+                renderArrays(step.array, step.sorted, step.highlights);
+                currentStep++;
+                
+                if (currentStep >= steps.length) {
+                    stepBtn.disabled = true;
+                    resetBtn.disabled = false;
+                } else {
+                    stepBtn.disabled = false;
+                    resetBtn.disabled = false;
+                }
+            }
+        };
+
+        startBtn.addEventListener('click', () => startSorting(true));
+        stepBtn.addEventListener('click', () => {
+            if (steps.length === 0) {
+                startSorting(false);
+            } else {
+                runStep();
+            }
+        });
+        resetBtn.addEventListener('click', generateArray);
+        speedSelect.addEventListener('change', (e) => {
+            delay = parseInt(e.target.value);
+        });
+
+        window.onload = () => {
+            delay = parseInt(speedSelect.value);
+            generateArray();
+        };
+    </script>
+</body>
+</html>
