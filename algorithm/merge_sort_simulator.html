@@ -14,10 +14,14 @@
             transition: height 300ms ease-in-out, background-color 300ms ease-in-out;
         }
         .separator {
-            width: 4px;
-            background-color: #4f46e5;
+            width: 2px;
+            background-color: #6366f1;
             height: 100%;
             margin: 0 2px;
+        }
+        .temp-array-container {
+            height: 100px;
+            margin-top: 1rem;
         }
     </style>
 </head>
@@ -47,28 +51,32 @@
                     <button id="resetBtn" class="w-full sm:w-auto flex-1 bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 transition duration-300">リセット</button>
                 </div>
             </div>
-            <div id="phase-info" class="text-center font-semibold text-purple-700 bg-purple-100 p-2 rounded mb-4">フェーズ: 開始前</div>
+            <div id="merge-info" class="text-center font-semibold text-purple-700 bg-purple-100 p-2 rounded mb-4">マージ範囲: -</div>
             <div id="explanation" class="text-center font-semibold text-gray-700 bg-gray-100 p-3 rounded-md min-h-[50px] flex items-center justify-center mb-6">
                 マージソートを開始してください。
             </div>
-            <div id="array-container" class="w-full h-64 md:h-80 bg-gray-50 rounded-lg flex justify-center items-end p-2 border-2 border-gray-200">
+            <div id="array-container" class="w-full h-64 md:h-80 bg-gray-50 rounded-lg flex justify-center items-end p-2 border-2 border-gray-200"></div>
+            <div class="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-gray-200">
+                <div class="text-sm font-medium text-gray-700 mb-2">作業用配列:</div>
+                <div id="temp-array-container" class="w-full temp-array-container bg-white rounded-lg flex justify-center items-end p-2"></div>
             </div>
         </div>
     </div>
     <script>
         const arrayContainer = document.getElementById('array-container');
+        const tempArrayContainer = document.getElementById('temp-array-container');
         const explanationDiv = document.getElementById('explanation');
         const speedSelect = document.getElementById('speed');
         const startBtn = document.getElementById('startBtn');
         const stepBtn = document.getElementById('stepBtn');
         const resetBtn = document.getElementById('resetBtn');
-        const phaseInfo = document.getElementById('phase-info');
+        const mergeInfo = document.getElementById('merge-info');
 
         let array = [];
         let steps = [];
         let currentStep = 0;
         let isSorting = false;
-        const ARRAY_SIZE = 16; // マージソートの視覚化のため、2の累乗にする
+        const ARRAY_SIZE = 16; // マージソートの可視化のため、サイズを調整
         let delay = 150;
 
         const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -89,8 +97,9 @@
             steps = [];
             currentStep = 0;
             renderArray(array);
+            renderTempArray([]);
             explanationDiv.textContent = 'マージソートを開始してください。';
-            phaseInfo.textContent = 'フェーズ: 開始前';
+            mergeInfo.textContent = 'マージ範囲: -';
             updateControlsState(false);
             stepBtn.disabled = false;
         };
@@ -98,12 +107,14 @@
         const renderArray = (arr, highlights = {}, partitions = []) => {
             arrayContainer.innerHTML = '';
             const itemWidth = 90 / arr.length;
-            const allPartitions = new Set(partitions);
+            const allPartitions = new Set([...partitions]);
 
             arr.forEach((value, index) => {
                 if (index > 0 && allPartitions.has(index)) {
                     const separator = document.createElement('div');
                     separator.classList.add('separator');
+                    separator.style.backgroundColor = '#4f46e5';
+                    separator.style.width = '4px';
                     arrayContainer.appendChild(separator);
                 }
 
@@ -111,187 +122,211 @@
                 bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
                 bar.style.height = `${value}%`;
                 bar.style.width = `${itemWidth}%`;
-                
                 bar.textContent = value;
                 bar.classList.add('text-white', 'text-xs', 'font-bold', 'overflow-hidden');
-                
+
                 if (value < 15) {
                     bar.classList.add('text-transparent');
                 }
-                
-                // 色分けの優先順位に従って背景色を設定
+
                 if (highlights.sorted && highlights.sorted.includes(index)) {
-                    bar.classList.add('bg-green-500'); // ソート済み: 緑
+                    bar.classList.add('bg-green-500');
+                } else if (highlights.merging && highlights.merging.includes(index)) {
+                    bar.classList.add('bg-purple-500');
                 } else if (highlights.comparing && highlights.comparing.includes(index)) {
-                    bar.classList.add('bg-yellow-400'); // 比較中: 黄
-                } else if (highlights.writing && highlights.writing.includes(index)) {
-                    bar.classList.add('bg-red-500'); // 書き込み中: 赤
-                } else if (highlights.mergeLeft && highlights.mergeLeft.includes(index)) {
-                    bar.classList.add('bg-pink-400'); // マージ左部分: ピンク
-                } else if (highlights.mergeRight && highlights.mergeRight.includes(index)) {
-                    bar.classList.add('bg-purple-400'); // マージ右部分: 紫
+                    bar.classList.add('bg-yellow-400');
                 } else if (highlights.subArray && highlights.subArray.includes(index)) {
-                    bar.classList.add('bg-orange-400'); // 分割された部分配列: オレンジ
+                    bar.classList.add('bg-pink-400');
                 } else {
-                    bar.classList.add('bg-indigo-400'); // 通常: 青
+                    bar.classList.add('bg-indigo-400');
                 }
-                
+
                 arrayContainer.appendChild(bar);
             });
         };
 
-        const recordStep = (arr, highlights, message, phase) => {
-            steps.push({ 
-                array: [...arr], 
-                highlights, 
-                message, 
-                phase,
-                partitions: highlights.partitions || []
+        const renderTempArray = (tempArr, highlights = {}) => {
+            tempArrayContainer.innerHTML = '';
+            if (tempArr.length === 0) return;
+
+            const itemWidth = 90 / array.length;
+            tempArr.forEach((value, index) => {
+                const bar = document.createElement('div');
+                bar.classList.add('bar', 'flex', 'items-start', 'justify-center', 'pt-1', 'rounded-t-sm');
+                bar.style.height = `${value}%`;
+                bar.style.width = `${itemWidth}%`;
+                bar.textContent = value;
+                bar.classList.add('text-white', 'text-xs', 'font-bold', 'overflow-hidden');
+
+                if (value < 15) {
+                    bar.classList.add('text-transparent');
+                }
+
+                if (highlights.writing && highlights.writing.includes(index)) {
+                    bar.classList.add('bg-orange-500');
+                } else {
+                    bar.classList.add('bg-blue-300');
+                }
+
+                tempArrayContainer.appendChild(bar);
             });
         };
 
-        const merge = (arr, l, m, r, aux) => {
-            // 左右の部分配列を表示
+        const recordStep = (arr, tempArr, highlights, message, mergeRange = null) => {
+            steps.push({ array: [...arr], tempArray: [...tempArr], highlights, message, mergeRange });
+        };
+
+        const merge = (arr, tempArr, left, mid, right) => {
+            let i = left;
+            let j = mid + 1;
+            let k = left;
+
             recordStep(
-                arr,
-                { 
-                    mergeLeft: Array.from({length: m-l+1}, (_, i) => l+i),
-                    mergeRight: Array.from({length: r-m}, (_, i) => m+1+i),
-                    partitions: [m+1]
-                },
-                `区間[${l+1}..${m+1}]と区間[${m+2}..${r+1}]のマージを開始します`,
-                'マージ中'
+                arr, 
+                tempArr,
+                { subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx) },
+                `[${left + 1}..${right + 1}]の範囲をマージします`,
+                `${left + 1}..${right + 1}`
             );
 
-            let i = l;
-            let j = m + 1;
-            let k = l;
-
-            while (i <= m && j <= r) {
-                // 比較対象を表示
+            while (i <= mid && j <= right) {
                 recordStep(
                     arr,
-                    {
-                        comparing: [i, j],
-                        mergeLeft: Array.from({length: m-l+1}, (_, idx) => l+idx),
-                        mergeRight: Array.from({length: r-m}, (_, idx) => m+1+idx),
-                        partitions: [m+1]
-                    },
-                    `${arr[i]} と ${arr[j]} を比較`,
-                    'マージ中'
+                    tempArr,
+                    { comparing: [i, j], subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx) },
+                    `${arr[i]} と ${arr[j]} を比較します`,
+                    `${left + 1}..${right + 1}`
                 );
 
                 if (arr[i] <= arr[j]) {
-                    aux[k] = arr[i];
+                    tempArr[k] = arr[i];
                     recordStep(
                         arr,
-                        {
-                            writing: [k],
-                            mergeLeft: Array.from({length: m-l+1}, (_, idx) => l+idx),
-                            mergeRight: Array.from({length: r-m}, (_, idx) => m+1+idx),
-                            partitions: [m+1]
+                        tempArr,
+                        { 
+                            comparing: [i],
+                            writing: [k - left],
+                            subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx)
                         },
-                        `${arr[i]} を位置 ${k+1} に配置`,
-                        'マージ中'
+                        `${arr[i]} を作業用配列に配置します`,
+                        `${left + 1}..${right + 1}`
                     );
                     i++;
                 } else {
-                    aux[k] = arr[j];
+                    tempArr[k] = arr[j];
                     recordStep(
                         arr,
+                        tempArr,
                         {
-                            writing: [k],
-                            mergeLeft: Array.from({length: m-l+1}, (_, idx) => l+idx),
-                            mergeRight: Array.from({length: r-m}, (_, idx) => m+1+idx),
-                            partitions: [m+1]
+                            comparing: [j],
+                            writing: [k - left],
+                            subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx)
                         },
-                        `${arr[j]} を位置 ${k+1} に配置`,
-                        'マージ中'
+                        `${arr[j]} を作業用配列に配置します`,
+                        `${left + 1}..${right + 1}`
                     );
                     j++;
                 }
                 k++;
             }
 
-            while (i <= m) {
-                aux[k] = arr[i];
+            while (i <= mid) {
+                tempArr[k] = arr[i];
                 recordStep(
                     arr,
+                    tempArr,
                     {
-                        writing: [k],
-                        mergeLeft: Array.from({length: m-l+1}, (_, idx) => l+idx),
-                        partitions: [m+1]
+                        writing: [k - left],
+                        subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx)
                     },
-                    `残りの左側の要素 ${arr[i]} を位置 ${k+1} に配置`,
-                    'マージ中'
+                    `残りの要素 ${arr[i]} を作業用配列に配置します`,
+                    `${left + 1}..${right + 1}`
                 );
                 i++;
                 k++;
             }
 
-            while (j <= r) {
-                aux[k] = arr[j];
+            while (j <= right) {
+                tempArr[k] = arr[j];
                 recordStep(
                     arr,
+                    tempArr,
                     {
-                        writing: [k],
-                        mergeRight: Array.from({length: r-m}, (_, idx) => m+1+idx),
-                        partitions: [m+1]
+                        writing: [k - left],
+                        subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx)
                     },
-                    `残りの右側の要素 ${arr[j]} を位置 ${k+1} に配置`,
-                    'マージ中'
+                    `残りの要素 ${arr[j]} を作業用配列に配置します`,
+                    `${left + 1}..${right + 1}`
                 );
                 j++;
                 k++;
             }
 
-            // 補助配列から元の配列にコピー
-            for (let i = l; i <= r; i++) {
-                arr[i] = aux[i];
+            // 作業用配列から元の配列にコピー
+            for (let m = left; m <= right; m++) {
+                arr[m] = tempArr[m];
+                recordStep(
+                    arr,
+                    tempArr,
+                    {
+                        merging: [m],
+                        subArray: Array.from({length: right - left + 1}, (_, idx) => left + idx)
+                    },
+                    `要素 ${arr[m]} を元の配列に戻します`,
+                    `${left + 1}..${right + 1}`
+                );
             }
-
-            recordStep(
-                arr,
-                { sorted: Array.from({length: r-l+1}, (_, i) => l+i) },
-                `区間[${l+1}..${r+1}]のマージが完了しました`,
-                'マージ完了'
-            );
         };
 
-        const mergeSortHelper = (arr, l, r, aux) => {
-            if (l < r) {
-                const m = Math.floor((l + r) / 2);
-                
-                // 分割段階の視覚化
-                recordStep(
-                    arr,
-                    { 
-                        subArray: Array.from({length: r-l+1}, (_, i) => l+i),
-                        partitions: [m+1]
-                    },
-                    `区間[${l+1}..${r+1}]を[${l+1}..${m+1}]と[${m+2}..${r+1}]に分割`,
-                    '分割'
-                );
+        const mergeSortHelper = (arr, tempArr, left, right, sortedRanges = []) => {
+            if (left < right) {
+                const mid = Math.floor((left + right) / 2);
 
-                mergeSortHelper(arr, l, m, aux);
-                mergeSortHelper(arr, m + 1, r, aux);
-                merge(arr, l, m, r, aux);
-            } else if (l === r) {
                 recordStep(
                     arr,
-                    { sorted: [l] },
-                    `要素 ${arr[l]} は1要素なのでソート済みです`,
-                    '分割'
+                    tempArr,
+                    { subArray: Array.from({length: mid - left + 1}, (_, idx) => left + idx) },
+                    `左半分[${left + 1}..${mid + 1}]を処理します`
                 );
+                mergeSortHelper(arr, tempArr, left, mid, sortedRanges);
+
+                recordStep(
+                    arr,
+                    tempArr,
+                    { subArray: Array.from({length: right - (mid + 1) + 1}, (_, idx) => mid + 1 + idx) },
+                    `右半分[${mid + 2}..${right + 1}]を処理します`
+                );
+                mergeSortHelper(arr, tempArr, mid + 1, right, sortedRanges);
+
+                merge(arr, tempArr, left, mid, right);
+
+                // マージが完了した範囲を記録
+                if (right - left + 1 === arr.length) {
+                    recordStep(
+                        arr,
+                        [],
+                        { sorted: Array.from({length: arr.length}, (_, idx) => idx) },
+                        'ソートが完了しました！'
+                    );
+                } else {
+                    sortedRanges.push([left, right]);
+                    const sortedIndices = sortedRanges.flatMap(([start, end]) => 
+                        Array.from({length: end - start + 1}, (_, idx) => start + idx)
+                    );
+                    recordStep(
+                        arr,
+                        tempArr,
+                        { sorted: sortedIndices },
+                        `[${left + 1}..${right + 1}]のマージが完了しました`
+                    );
+                }
             }
         };
 
         const mergeSort = () => {
             const arr = [...array];
-            const aux = new Array(arr.length);
-            mergeSortHelper(arr, 0, arr.length - 1, aux);
-            const allSorted = Array.from({length: arr.length}, (_, k) => k);
-            recordStep(arr, { sorted: allSorted }, 'ソートが完了しました！', '完了');
+            const tempArr = new Array(arr.length);
+            mergeSortHelper(arr, tempArr, 0, arr.length - 1);
         };
 
         const startSorting = (isAuto = false) => {
@@ -312,8 +347,9 @@
             for(let i = 0; i < steps.length; i++) {
                 const step = steps[i];
                 explanationDiv.textContent = step.message;
-                phaseInfo.textContent = `フェーズ: ${step.phase}`;
-                renderArray(step.array, step.highlights, step.partitions);
+                mergeInfo.textContent = step.mergeRange ? `マージ範囲: ${step.mergeRange}` : 'マージ範囲: -';
+                renderArray(step.array, step.highlights);
+                renderTempArray(step.tempArray, step.highlights);
                 await sleep(delay);
             }
             resetBtn.disabled = false;
@@ -323,11 +359,12 @@
             if (currentStep < steps.length) {
                 const step = steps[currentStep];
                 explanationDiv.textContent = step.message;
-                phaseInfo.textContent = `フェーズ: ${step.phase}`;
-                renderArray(step.array, step.highlights, step.partitions);
+                mergeInfo.textContent = step.mergeRange ? `マージ範囲: ${step.mergeRange}` : 'マージ範囲: -';
+                renderArray(step.array, step.highlights);
+                renderTempArray(step.tempArray, step.highlights);
                 currentStep++;
                 
-                if (currentStep >= steps.length){
+                if (currentStep >= steps.length) {
                     stepBtn.disabled = true;
                     resetBtn.disabled = false;
                 } else {
